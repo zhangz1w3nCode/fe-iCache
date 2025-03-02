@@ -118,7 +118,7 @@ export default {
   //初次加载时候 挂载
   mounted() {
     this.loadData().then(() => {
-      this.init();
+      this.init(false);
     });
   },
 
@@ -145,7 +145,7 @@ export default {
       }
     },
 
-    init() {
+    init(isReload) {
       //初始化
       this.lf = new LogicFlow({
         //插件注册
@@ -188,12 +188,12 @@ export default {
       this.lf.on("node:delete", (data) => {
         this.removeNodeByNode(data)
       });
-      this.settingGraphData()
+      this.settingGraphData(isReload)
       this.currentService = this.rowData.applicationName;
       this.loadFLowChainUpdateInfo()
     },
     //渲染图数据
-    settingGraphData() {
+    settingGraphData(isReload) {
       if (this.$route.params.record) {
         this.rowData = JSON.parse(this.$route.params.record);
         //渲染加载
@@ -203,8 +203,12 @@ export default {
           this.lf.translateCenter();
           console.log('渲染流程图成功')
         }
+        console.log(this.allNodeInfo)
+        if(isReload){
+          return
+        }
         if (this.rowData.allNodeInfo !== null && this.rowData.allNodeInfo !== '') {
-          this.allNodeInfo = JSON.parse(this.rowData.allNodeInfo);
+            this.allNodeInfo = JSON.parse(this.rowData.allNodeInfo);
         }
       }
     },
@@ -218,6 +222,12 @@ export default {
     updateFlow() {
       this.gridData = this.lf.getGraphData();
       try {
+        // console.log(this.gridData)
+        // if(this.gridData.nodes.length === 0 && this.gridData.edges.length === 0){
+        //   alert("流程图不能为空")
+        //   this.init(true)
+        //   return
+        // }
         //将前端的流程图的边和结点json对象转为后端的语法树对象
         this.transformFeToBe(this.gridData)
         console.log("transToBeObjectUpdate")
@@ -231,7 +241,6 @@ export default {
 
         //清空画布
         this.lf.clearData()
-
         //调用修改流程方法
         updateFlowChain(this.beObjectUpdate).then(resp => {
           if (resp != null && resp.data !== null) {
@@ -246,14 +255,24 @@ export default {
             this.beObjectUpdate.applicationName = resp.data.applicationName;
             this.beObjectUpdate.chainName = resp.data.chainName;
             this.beObjectUpdate.chainDesc = resp.data.chainDesc;
+            if (resp.data.allNodeInfo !== null && resp.data.allNodeInfo !== '') {
+              this.allNodeInfo = JSON.parse(resp.data.allNodeInfo);
+              this.beObjectUpdate.allNodeInfo = JSON.parse(resp.data.allNodeInfo);
+            }
           }
         })
         //清空对象
-        this.beObjectUpdate = {
-          nodeEntities: [],
-          nodeEdges: [],
-          jsonData: '',
-        };
+        // this.beObjectUpdate = {
+        //   nodeEntities: [],
+        //   nodeEdges: [],
+        //   jsonData: '',
+        // };
+        this.beObjectUpdate.nodeEntities = [];
+        this.beObjectUpdate.nodeEdges = [];
+        this.beObjectUpdate.jsonData = '';
+        this.currentNodeInfo = {};
+
+        console.log('after:',this.allNodeInfo)
       } catch (error) {
         console.error("请求失败，请检查网络或服务器状态", error);
       }
