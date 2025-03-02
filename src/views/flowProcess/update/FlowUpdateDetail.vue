@@ -235,6 +235,20 @@ export default {
         this.updateFlowChainRequest.enable = this.currentRowData.enable
         this.updateFlowChainRequest.applicationName = this.currentService
         this.updateFlowChainRequest.jsonData = JSON.stringify(this.gridData);
+
+        //处理空的动态参数
+        Object.keys(this.allNodeInfo).forEach(nodeId => {
+          if (this.allNodeInfo[nodeId].dynamicParams) {
+            const dynamicParamsArray = this.allNodeInfo[nodeId].dynamicParams
+            for (const index in dynamicParamsArray) {
+              const currentParam =  dynamicParamsArray[index]
+              if (currentParam.paramValue === ''|| currentParam.paramName === '') {
+                dynamicParamsArray.splice(dynamicParamsArray.findIndex(item => item.paramName === currentParam.paramName), 1);
+              }
+            }
+          }
+        });
+
         this.updateFlowChainRequest.allNodeInfo = JSON.stringify(this.allNodeInfo);
 
         //清空画布
@@ -257,6 +271,7 @@ export default {
       // 转换nodes到nodeEntities
       if (feObject.nodes) {
         feObject.nodes.forEach(node => {
+          //收集节点的动态参数
           const dynamicParams = {};
           if (this.allNodeInfo[this.getTinyNodeId(node.id)]) {
             const currentNodeInfo = this.allNodeInfo[this.getTinyNodeId(node.id)]
@@ -266,8 +281,8 @@ export default {
                 if(param.paramName !== null && param.paramName !== ''&&
                     param.paramValue !== null && param.paramValue !== ''){
                   dynamicParams[param.paramName] = param.paramValue;
-                }else{
-                  //把当前参数在当前节点的dynamicParams中删除
+                }
+                else{
                   dynamicParamsArray.splice(dynamicParamsArray.findIndex(item => item.paramName === param.paramName), 1);
                 }
               })
@@ -284,7 +299,6 @@ export default {
           });
         });
       }
-
       // 转换edges到nodeEdges
       if (feObject.edges) {
         feObject.edges.forEach(edge => {
