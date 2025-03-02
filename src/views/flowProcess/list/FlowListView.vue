@@ -122,7 +122,6 @@ export default {
         enable: checked ? 1 : 0,
         nodeEntities: this.nodeEntities,
       };
-      console.log(record)
       updateFlowChainStatus(param).then(resp => {
         if (resp != null && resp.data !== null) {
           record.enable = resp.data.enable;
@@ -166,7 +165,7 @@ export default {
       }else if (operatorType === '编辑流程') {
         this.$router.push({
           name: 'flowGraphDetail',
-          params: { record: JSON.stringify(record) }
+          params: { id: record.id }
         });
       }
     },

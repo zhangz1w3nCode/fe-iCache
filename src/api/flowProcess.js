@@ -13,6 +13,13 @@ export function getFlowChainList(param) {
   })
 }
 
+export function getFlowChainById(param) {
+  console.log(param)
+  return requestUtils.get({
+    url: `/flow/chain/getFlowChainById/?flowProcessId=${param}`,
+  })
+}
+
 export function updateFlowChain(param) {
   return requestUtils.post({
     url: '/flow/chain/updateFlowChain',

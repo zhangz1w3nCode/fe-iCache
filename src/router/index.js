@@ -20,7 +20,7 @@ const routes = [
         component: FlowQueryDetailView
     },
     {
-        path: '/flow/update/detail/:record',
+        path: '/flow/update/detail/:id',
         name: 'flowGraphDetail',
         component: FlowUpdateDetail
     },
