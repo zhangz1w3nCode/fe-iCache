@@ -68,7 +68,7 @@
 //样式
 import "@logicflow/core/dist/style/index.css";
 import '@logicflow/extension/lib/style/index.css'
-import {getFlowChainList, getBizServiceList, updateFlowChainStatus,save} from '../../../api/flowProcess.js';
+import {getFlowChainList, getOnlineBizNameList, updateFlowChainStatus,save} from '../../../api/flowProcess.js';
 import {SmileOutlined, DownOutlined, SettingOutlined, SearchOutlined} from '@ant-design/icons-vue';
 
 export default {
@@ -142,7 +142,7 @@ export default {
         console.log('获取流程列表成功')
         this.dataSource = resp.data.records;
 
-        const bizServiceListResp = await getBizServiceList();
+        const bizServiceListResp = await getOnlineBizNameList();
         this.bizServiceList = bizServiceListResp.data.map(item => ({ value: item, label: item }));
       } catch (error) {
         console.error('获取流程列表失败:', error);

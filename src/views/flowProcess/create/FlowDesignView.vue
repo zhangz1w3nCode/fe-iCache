@@ -16,8 +16,6 @@
           @change="handleChange"
       ></a-select>
       <br>
-<!--      <a-input v-model:value="this.beObject.applicationName" placeholder="请输入流程挂载的服务名称"/>-->
-<!--      <br>-->
       <br>
       <a-input v-model:value="this.beObject.chainName" placeholder="请输入流程名称"/>
       <br>
@@ -117,7 +115,7 @@ import {
 } from '@logicflow/extension';
 
 //方法
-import {getBizServiceList, getProcessNodeList, save} from '../../../api/flowProcess.js';
+import {getOnlineBizNameList, getProcessNodeList, save} from '../../../api/flowProcess.js';
 
 export default {
 
@@ -138,7 +136,7 @@ export default {
       try {
         const businessNodeList = await getProcessNodeList();
         this.businessNodeList = businessNodeList.data;
-        const bizServiceList = await getBizServiceList();
+        const bizServiceList = await getOnlineBizNameList();
         if(bizServiceList.data!==null){
           bizServiceList.data.forEach(item => {
             this.bizServiceList.push({

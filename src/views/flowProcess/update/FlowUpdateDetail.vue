@@ -4,6 +4,7 @@
     <div class="operateAreaUpdate">
       <h1>流程详情信息</h1>
       <a-select
+          disabled
           v-model:value="currentService"
           show-search
           placeholder="选择流程挂载的服务名称"
@@ -107,7 +108,12 @@ import {
   SelectionSelect,
   Snapshot
 } from "@logicflow/extension";
-import {getBizServiceList, getProcessNodeList, updateFlowChain,getFlowChainById} from "../../../api/flowProcess.js";
+import {
+  getOnlineBizNameList,
+  updateFlowChain,
+  getFlowChainById,
+  getProcessNodeListByBizName
+} from "../../../api/flowProcess.js";
 import {MinusCircleOutlined, PlusOutlined} from "@ant-design/icons-vue";
 
 export default {
@@ -127,12 +133,21 @@ export default {
         if (this.$route.params.id) {
           this.rowId = this.$route.params.id;
         }
-        //获取流程节点
-        const businessNodeList = await getProcessNodeList();
-        this.businessNodeList = businessNodeList.data;
+        //获取指定id的流程信息
+        const flowChainResp = await getFlowChainById(this.rowId);
+        this.currentRowData = flowChainResp.data;
 
+        //初始化当前业务服务值
+        this.currentService = this.currentRowData.applicationName;
+
+        //获取已经注册的服务名称的业务流程节点
+        const businessNodeList = await getProcessNodeListByBizName(this.currentService);
+        //将后端对象集合追加到this.businessNodeList里面 因为前端有一些固定节点的展示 和业务无关
+        businessNodeList.data.forEach(item => {
+            this.businessNodeList.push(item)
+          })
         //获取已经注册的服务
-        const bizServiceList = await getBizServiceList();
+        const bizServiceList = await getOnlineBizNameList();
         if(bizServiceList.data!==null){
           bizServiceList.data.forEach(item => {
             this.bizServiceList.push({
@@ -141,12 +156,6 @@ export default {
             });
           });
         }
-        //获取指定id的流程信息
-        const flowChainResp = await getFlowChainById(this.rowId);
-        this.currentRowData = flowChainResp.data;
-
-        //初始化当前业务服务值
-        this.currentService = this.currentRowData.applicationName;
       } catch (error) {
         console.error('Error fetching node list:', error);
       }
@@ -271,6 +280,14 @@ export default {
       // 转换nodes到nodeEntities
       if (feObject.nodes) {
         feObject.nodes.forEach(node => {
+          //性能优化: 收集开始和结束节点的beanName 前端收集开销比后端小
+          const beanName = node.properties.name
+          if (node.properties.type === 'START') {
+            this.updateFlowChainRequest.startNodeBeanName = beanName
+          }else if (node.properties.type === 'END') {
+            this.updateFlowChainRequest.endNodeBeanName = beanName
+          }
+
           //收集节点的动态参数
           const dynamicParams = {};
           if (this.allNodeInfo[this.getTinyNodeId(node.id)]) {
@@ -288,9 +305,10 @@ export default {
               })
             }
           }
+          //构造后端的nodeEntities对象
           this.updateFlowChainRequest.nodeEntities.push({
             id: node.id,
-            name: node.properties.name,
+            name: beanName,
             label: node.text.value,
             nodeType: node.properties.type,
             dynamicParams: dynamicParams,
@@ -373,7 +391,38 @@ export default {
   data() {
     return {
       gridData: {},
-      businessNodeList: [],
+      businessNodeList: [
+        {
+          type: "diamond",
+          text: "汇总节点",
+          label: "汇总节点",
+          icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAVCAYAAAHeEJUAAAAABGdBTUEAALGPC/xhBQAAAvVJREFUOBGNVEFrE0EU/mY3bQoiFlOkaUJrQUQoWMGePLX24EH0IIoHKQiCV0G8iE1covgLiqA/QTzVm1JPogc9tIJYFaQtlhQxqYjSpunu+L7JvmUTU3AgmTfvffPNN++9WSA1DO182f6xwILzD5btfAoQmwL5KJEwiQyVbSVZ0IgRyV6PTpIJ81E5ZvqfHQR0HUOBHW4L5Et2kQ6Zf7iAOhTFAA8s0pEP7AXO1uAA52SbqGk6h/6J45LaLhO64ByfcUzM39V7ZiAdS2yCePPEIQYvTUHqM/n7dgQNfBKWPjpF4ISk8q3J4nB11qw6X8l+FsF3EhlkEMfrjIer3wJTLwS2aCNcj4DbGxXTw00JmAuO+Ni6bBxVUCvS5d9aa04+so4pHW5jLTywuXAL7jJ+D06sl82Sgl2JuVBQn498zkc2bGKxULHjCnSMadBKYDYYHAtsby1EQ5lNGrQd4Y3v4Zo0XdGEmDno46yCM9Tk+RiJmUYHS/aXHPNTcjxcbTFna000PFJHIVZ5lFRqRpJWk9/+QtlOUYJj9HG5pVFEU7zqIYDVsw2s+AJaD8wTd2umgSCCyUxgGsS1Y6TBwXQQTFuZaHcd8gAGioE90hlsY+wMcs30RduYtxanjMGal8H5dMW67dmT1JFtYUEe8LiQLRsPZ6IIc7A4J5tqco3T0pnv/4u0kyzrYUq7gASuEyI8VXKvB9Odytv6jS/PNaZBln0nioJG/AVQRZvApOdhjj3Jt8QC8Im09SafwdBdvIpztpxWxpeKCC+EsFdS8DCyuCn2munFpL7ctHKp+Xc5cMybeIyMAN33SPL3ZR9QV1XVwLyzHm6Iv0/yeUuUb7PPlZC4D4HZkeu6dpF4v9j9MreGtMbxMMRLIcjJic9yHi7WQ3yVKzZVWUr5UrViJvn1FfUlwe/KYVfYyWRLSGNu16hR01U9IacajXPei0wx/5BqgInvJN+MMNtNme7ReU9SBbgntovn0kKHpFg7UogZvaZiOue/q1SBo9ktHzQAAAAASUVORK5CYII=",
+          properties: {
+            name: "SummaryNode",
+            type: "SUMMARY"
+          }
+        },
+        {
+          type: "diamond",
+          text: "选择节点",
+          label: "选择节点",
+          icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAVCAYAAAHeEJUAAAAABGdBTUEAALGPC/xhBQAAAvVJREFUOBGNVEFrE0EU/mY3bQoiFlOkaUJrQUQoWMGePLX24EH0IIoHKQiCV0G8iE1covgLiqA/QTzVm1JPogc9tIJYFaQtlhQxqYjSpunu+L7JvmUTU3AgmTfvffPNN++9WSA1DO182f6xwILzD5btfAoQmwL5KJEwiQyVbSVZ0IgRyV6PTpIJ81E5ZvqfHQR0HUOBHW4L5Et2kQ6Zf7iAOhTFAA8s0pEP7AXO1uAA52SbqGk6h/6J45LaLhO64ByfcUzM39V7ZiAdS2yCePPEIQYvTUHqM/n7dgQNfBKWPjpF4ISk8q3J4nB11qw6X8l+FsF3EhlkEMfrjIer3wJTLwS2aCNcj4DbGxXTw00JmAuO+Ni6bBxVUCvS5d9aa04+so4pHW5jLTywuXAL7jJ+D06sl82Sgl2JuVBQn498zkc2bGKxULHjCnSMadBKYDYYHAtsby1EQ5lNGrQd4Y3v4Zo0XdGEmDno46yCM9Tk+RiJmUYHS/aXHPNTcjxcbTFna000PFJHIVZ5lFRqRpJWk9/+QtlOUYJj9HG5pVFEU7zqIYDVsw2s+AJaD8wTd2umgSCCyUxgGsS1Y6TBwXQQTFuZaHcd8gAGioE90hlsY+wMcs30RduYtxanjMGal8H5dMW67dmT1JFtYUEe8LiQLRsPZ6IIc7A4J5tqco3T0pnv/4u0kyzrYUq7gASuEyI8VXKvB9Odytv6jS/PNaZBln0nioJG/AVQRZvApOdhjj3Jt8QC8Im09SafwdBdvIpztpxWxpeKCC+EsFdS8DCyuCn2munFpL7ctHKp+Xc5cMybeIyMAN33SPL3ZR9QV1XVwLyzHm6Iv0/yeUuUb7PPlZC4D4HZkeu6dpF4v9j9MreGtMbxMMRLIcjJic9yHi7WQ3yVKzZVWUr5UrViJvn1FfUlwe/KYVfYyWRLSGNu16hR01U9IacajXPei0wx/5BqgInvJN+MMNtNme7ReU9SBbgntovn0kKHpFg7UogZvaZiOue/q1SBo9ktHzQAAAAASUVORK5CYII=",
+          properties: {
+            name: "SwitchNode",
+            type: "SWITCH"
+          }
+        },
+        {
+          type: "diamond",
+          text: "并行节点",
+          label: "并行节点",
+          icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAVCAYAAAHeEJUAAAAABGdBTUEAALGPC/xhBQAAAvVJREFUOBGNVEFrE0EU/mY3bQoiFlOkaUJrQUQoWMGePLX24EH0IIoHKQiCV0G8iE1covgLiqA/QTzVm1JPogc9tIJYFaQtlhQxqYjSpunu+L7JvmUTU3AgmTfvffPNN++9WSA1DO182f6xwILzD5btfAoQmwL5KJEwiQyVbSVZ0IgRyV6PTpIJ81E5ZvqfHQR0HUOBHW4L5Et2kQ6Zf7iAOhTFAA8s0pEP7AXO1uAA52SbqGk6h/6J45LaLhO64ByfcUzM39V7ZiAdS2yCePPEIQYvTUHqM/n7dgQNfBKWPjpF4ISk8q3J4nB11qw6X8l+FsF3EhlkEMfrjIer3wJTLwS2aCNcj4DbGxXTw00JmAuO+Ni6bBxVUCvS5d9aa04+so4pHW5jLTywuXAL7jJ+D06sl82Sgl2JuVBQn498zkc2bGKxULHjCnSMadBKYDYYHAtsby1EQ5lNGrQd4Y3v4Zo0XdGEmDno46yCM9Tk+RiJmUYHS/aXHPNTcjxcbTFna000PFJHIVZ5lFRqRpJWk9/+QtlOUYJj9HG5pVFEU7zqIYDVsw2s+AJaD8wTd2umgSCCyUxgGsS1Y6TBwXQQTFuZaHcd8gAGioE90hlsY+wMcs30RduYtxanjMGal8H5dMW67dmT1JFtYUEe8LiQLRsPZ6IIc7A4J5tqco3T0pnv/4u0kyzrYUq7gASuEyI8VXKvB9Odytv6jS/PNaZBln0nioJG/AVQRZvApOdhjj3Jt8QC8Im09SafwdBdvIpztpxWxpeKCC+EsFdS8DCyuCn2munFpL7ctHKp+Xc5cMybeIyMAN33SPL3ZR9QV1XVwLyzHm6Iv0/yeUuUb7PPlZC4D4HZkeu6dpF4v9j9MreGtMbxMMRLIcjJic9yHi7WQ3yVKzZVWUr5UrViJvn1FfUlwe/KYVfYyWRLSGNu16hR01U9IacajXPei0wx/5BqgInvJN+MMNtNme7ReU9SBbgntovn0kKHpFg7UogZvaZiOue/q1SBo9ktHzQAAAAASUVORK5CYII=",
+          properties: {
+            name: "WhenNode",
+            type: "WHEN"
+          }
+        },
+      ],
       bizServiceList: [],
       lf: null,
       rowId: undefined,
@@ -384,6 +433,8 @@ export default {
         nodeEdges: [],
         jsonData: '',
         allNodeInfo: '',
+        startNodeBeanName: '',
+        endNodeBeanName: '',
         id: 0,
         chainName: '',
         applicationName: '',

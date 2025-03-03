@@ -14,7 +14,6 @@ export function getFlowChainList(param) {
 }
 
 export function getFlowChainById(param) {
-  console.log(param)
   return requestUtils.get({
     url: `/flow/chain/getFlowChainById/?flowProcessId=${param}`,
   })
@@ -39,8 +38,16 @@ export function getProcessNodeList() {
   return requestUtils.get({
     url: '/flow/node/getFlowNodeList'
   })
-}export function getBizServiceList() {
+}
+
+export function getProcessNodeListByBizName(param) {
   return requestUtils.get({
-    url: '/flow/node/getBizServiceList'
+    url: `/flow/node/getProcessNodeListByBizName/?bizName=${param}`,
+  })
+}
+
+export function getOnlineBizNameList() {
+  return requestUtils.get({
+    url: '/flow/node/getOnlineBizNameList'
   })
 }
