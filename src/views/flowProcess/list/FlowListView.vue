@@ -1,6 +1,30 @@
 <template>
   <div class="flowList">
-    <a-table size="large" :columns="columns" :data-source="dataSource" bordered
+    <a-button type="primary" @click="handleCreate" style="margin-bottom: 16px">新建流程</a-button>
+    <a-modal
+      v-model:visible="modalVisible"
+      title="新建流程"
+      @ok="handleSubmit"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="挂载服务">
+          <a-select
+            v-model:value="flowData.applicationName"
+            show-search
+            placeholder="请选择服务"
+            :options="bizServiceList"
+          />
+        </a-form-item>
+        <a-form-item label="流程名称">
+          <a-input v-model:value="flowData.chainName" />
+        </a-form-item>
+        <a-form-item label="流程描述">
+          <a-textarea v-model:value="flowData.chainDesc" :rows="4" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+    <a-table 
+      size="large" :columns="columns" :data-source="dataSource" bordered
              :row-class-name="(_record, index) => (index % 2 === 1 ? 'table-striped' : null)">
       <template #headerCell="{ column }">
         <template v-if="column.key === 'title'">
@@ -44,7 +68,7 @@
 //样式
 import "@logicflow/core/dist/style/index.css";
 import '@logicflow/extension/lib/style/index.css'
-import {getFlowChainList, updateFlowChain, updateFlowChainStatus} from '../../../api/flowProcess.js';
+import {getFlowChainList, getBizServiceList, updateFlowChainStatus,save} from '../../../api/flowProcess.js';
 import {SmileOutlined, DownOutlined, SettingOutlined, SearchOutlined} from '@ant-design/icons-vue';
 
 export default {
@@ -93,6 +117,13 @@ export default {
         },
       ],
       dataSource: [],
+      bizServiceList: [],
+      flowData: {
+        applicationName: '',
+        chainName: '',
+        chainDesc: ''
+      },
+      modalVisible: false,
       operator: ['查看流程', '编辑流程'],
       modalQueryOpen: false,
       selectedQueryRecord: {},
@@ -110,10 +141,29 @@ export default {
         this.flowChainListResponse = resp.data;
         console.log('获取流程列表成功')
         this.dataSource = resp.data.records;
+
+        const bizServiceListResp = await getBizServiceList();
+        this.bizServiceList = bizServiceListResp.data.map(item => ({ value: item, label: item }));
       } catch (error) {
         console.error('获取流程列表失败:', error);
       }
     },
+
+    handleCreate() {
+      this.modalVisible = true;
+    },
+
+    async handleSubmit() {
+      try {
+        await save(this.flowData);
+        alert("添加成功")
+        this.modalVisible = false;
+        window.location.reload();
+      } catch (error) {
+        console.error('创建流程失败:', error);
+      }
+    },
+
     handleEnableChange(record, checked) {
       this.allNodeInfo =JSON.parse(record.allNodeInfo);
       this.getNodeEntities(record.jsonData)
